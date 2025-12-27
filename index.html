@@ -946,7 +946,8 @@
     function addItem() {
       const barcode = document.getElementById('invBarcode').value.trim();
       const name = document.getElementById('invName').value.trim();
-      const expiryDate = document.getElementById('invExpiry').value;
+      const expiryDateValue = document.getElementById('invExpiry').value.trim();
+      const expiryDate = expiryDateValue || null;  // 빈 문자열이면 null로 처리
       const quantity = parseInt(document.getElementById('invQuantity').value, 10);
       const category = document.getElementById('invCategory').value;
       const price = parseFloat(document.getElementById('invPrice').value) || null;
