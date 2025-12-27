@@ -986,15 +986,16 @@
           item.quantity = quantity;
           item.price = price;
           item.memo = memo;
-          if (currentImageData !== null) {
-            item.image = currentImageData;
-          }
+          // 이미지는 변경된 경우에만 업데이트
+          item.image = currentImageData;
 
           saveInventory();
           renderItemList();
           renderCategoryFilter();
+          clearForm();
+          document.getElementById('listView').style.display = 'block';
+          document.getElementById('registerView').style.display = 'none';
           toast(`물품 수정 완료: ${name}`);
-          showListView();
           return;
         }
       }
@@ -1030,8 +1031,10 @@
       saveInventory();
       renderItemList();
       renderCategoryFilter();
+      clearForm();
+      document.getElementById('listView').style.display = 'block';
+      document.getElementById('registerView').style.display = 'none';
       toast(`물품 등록 완료: ${name}`);
-      showListView();
     }
 
     // 물품 수정
@@ -1041,8 +1044,9 @@
 
       editingItemId = id;
 
-      // 등록 폼으로 전환
-      showRegisterForm();
+      // 등록 폼으로 전환 (clearForm 호출 안 함)
+      document.getElementById('listView').style.display = 'none';
+      document.getElementById('registerView').style.display = 'block';
 
       // 폼에 데이터 채우기
       document.getElementById('invBarcode').value = item.barcode;
@@ -1065,7 +1069,9 @@
 
     // 수정 취소
     function cancelEdit() {
-      showListView();
+      clearForm();
+      document.getElementById('listView').style.display = 'block';
+      document.getElementById('registerView').style.display = 'none';
       toast('수정이 취소되었습니다');
     }
 
@@ -1101,9 +1107,9 @@
 
     // 목록 보여주기
     function showListView() {
+      clearForm();
       document.getElementById('listView').style.display = 'block';
       document.getElementById('registerView').style.display = 'none';
-      clearForm();
     }
 
     // 수량 업데이트
