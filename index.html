@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>모바일 마진 계산기</title>
+  <!-- html5-qrcode 라이브러리 -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --text: #222;
+      --sub: #666;
+      --accent: #3a7afe;
+      --ok: #12a150;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Apple SD Gothic Neo, Noto Sans KR, sans-serif;
+      background: var(--bg); color: var(--text);
+    }
+    .wrap { max-width: 680px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 1.25rem; margin: 14px 4px 10px; }
+    .card {
+      background: var(--card); border-radius: var(--radius);
+      box-shadow: 0 10px 30px rgba(0,0,0,.06); padding: 14px;
+    }
+    .row { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 560px) { .row-2 { grid-template-columns: 1fr 1fr; } }
+
+    label { font-size: .92rem; color: var(--sub); display: block; margin-bottom: 6px; }
+
+    .field {
+      display: flex; align-items: center; gap: 8px;
+      border: 1px solid #e8e8ef; border-radius: 12px; padding: 10px 12px; background: #fff;
+    }
+    .field input, .field select {
+      flex: 1; border: 0; outline: 0; font-size: 1.05rem; min-width: 0; background: transparent;
+    }
+    .addon { color: var(--sub); font-size: .95rem; white-space: nowrap; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      height: 48px; padding: 0 16px; border: 0; border-radius: 12px;
+      background: var(--accent); color: #fff; font-size: 1rem; font-weight: 600;
+      width: 100%;
+    }
+    .btn.ghost { background: #eef3ff; color: var(--accent); }
+    .btn.small { height: 40px; padding: 0 12px; font-size: .95rem; }
+
+    .inline { display: flex; gap: 8px; align-items: center; }
+    .grow { flex: 1; }
+    .muted { color: var(--sub); font-size: .9rem; }
+
+    .result {
+      margin-top: 12px; padding: 12px; border-radius: 12px; background: #f3f7ff; border: 1px dashed #cfe0ff;
+    }
+    .price {
+      font-size: 1.6rem; font-weight: 800; color: var(--ok);
+    }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: #f1f1f5; border: 1px solid #e6e6ef; border-radius: 6px; padding: 2px 6px; }
+
+    .footer { margin: 22px 4px 10px; color: var(--sub); font-size: .85rem; }
+
+    /* 탭 네비게이션 */
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab-btn { flex: 1; }
+    .tab-btn.active { background: var(--accent); color: #fff; }
+    .tab-btn:not(.active) { background: #eef3ff; color: var(--accent); }
+
+    /* 물품 관리 */
+    .item-card {
+      background: #fff; border: 1px solid #e8e8ef; border-radius: 12px;
+      padding: 12px; margin-bottom: 10px;
+    }
+    .item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .item-name { font-size: 1.1rem; font-weight: 700; }
+    .item-barcode { font-size: .85rem; color: var(--sub); font-family: monospace; }
+    .item-detail { display: flex; gap: 12px; margin-top: 8px; font-size: .9rem; }
+    .item-detail > div { flex: 1; }
+
+    /* 유통기한 상태 표시 */
+    .expiry-badge {
+      display: inline-block; padding: 4px 10px; border-radius: 8px;
+      font-size: .85rem; font-weight: 600;
+    }
+    .expiry-expired { background: #ffe5e5; color: #d32f2f; }
+    .expiry-warning { background: #fff3e0; color: #f57c00; }
+    .expiry-caution { background: #fff9c4; color: #f9a825; }
+    .expiry-ok { background: #e8f5e9; color: #388e3c; }
+
+    .item-actions { display: flex; gap: 6px; margin-top: 10px; }
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--sub); }
+
+    /* 바코드 스캐너 */
+    #scanner-container {
+      margin: 12px 0;
+      border-radius: 12px;
+      overflow: hidden;
+      display: none;
+      background: #000;
+    }
+    #scanner-container.active {
+      display: block;
+    }
+    #reader {
+      width: 100%;
+      border: none;
+    }
+    #reader video {
+      width: 100%;
+      border-radius: 12px;
+    }
+    .scanner-status {
+      text-align: center;
+      padding: 12px;
+      background: #f3f7ff;
+      border-radius: 8px;
+      margin-top: 8px;
+      font-size: .9rem;
+      color: var(--accent);
+    }
+
+    /* 검색 하이라이트 */
+    .highlight {
+      background-color: #fff59d;
+      font-weight: 700;
+      padding: 2px 0;
+    }
+
+    /* 이미지 관련 */
+    .image-upload-container {
+      margin: 12px 0;
+    }
+    .image-preview {
+      width: 100%;
+      max-width: 200px;
+      height: 150px;
+      border: 2px dashed #e8e8ef;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      overflow: hidden;
+      background: #f9f9fb;
+      position: relative;
+    }
+    .image-preview:hover {
+      border-color: var(--accent);
+      background: #f3f7ff;
+    }
+    .image-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .image-preview-placeholder {
+      text-align: center;
+      color: var(--sub);
+      font-size: 0.9rem;
+    }
+    .image-remove {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .item-image {
+      width: 80px;
+      height: 80px;
+      border-radius: 8px;
+      object-fit: cover;
+      margin-right: 12px;
+      border: 1px solid #e8e8ef;
+    }
+
+    /* 카테고리 */
+    .category-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      background: #e8e8ef;
+      color: var(--text);
+      margin-right: 4px;
+    }
+    .category-filter {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .category-chip {
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid #e8e8ef;
+      background: white;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .category-chip:hover {
+      border-color: var(--accent);
+      background: #f3f7ff;
+    }
+    .category-chip.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>📦 모바일 마진 계산기</h1>
+
+    <!-- 탭 네비게이션 -->
+    <div class="tabs">
+      <button class="btn tab-btn active" id="tabMargin" onclick="switchTab('margin')">마진 계산기</button>
+      <button class="btn tab-btn" id="tabInventory" onclick="switchTab('inventory')">물품 관리</button>
+    </div>
+
+    <!-- 마진 계산기 섹션 -->
+    <div id="sectionMargin" class="card">
+      <div class="row row-2">
+        <div>
+          <label>박스 구입가(원)</label>
+          <div class="field">
+            <span class="addon">₩</span>
+            <input id="boxCost" type="number" inputmode="decimal" placeholder="예: 15000" />
+          </div>
+        </div>
+        <div>
+          <label>박스 수량(개)</label>
+          <div class="field">
+            <input id="qty" type="number" inputmode="numeric" placeholder="예: 24" />
+            <span class="addon">개</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="height: 10px"></div>
+
+      <div class="row">
+        <div>
+          <label>마진율(%)</label>
+          <div class="field">
+            <input id="margin" type="number" inputmode="decimal" placeholder="예: 30" />
+            <span class="addon">%</span>
+          </div>
+        </div>
+        <div>
+          <label>반올림</label>
+          <div class="field">
+            <select id="rounding">
+              <option value="1">1원 단위(정확)</option>
+              <option value="10">10원 단위</option>
+              <option value="50">50원 단위</option>
+              <option value="100">100원 단위</option>
+              <option value="ceil10">10원 올림</option>
+              <option value="ceil100">100원 올림</option>
+            </select>
+          </div>
+          <div class="muted">* 현장 단가를 깔끔하게 맞출 때 유용</div>
+        </div>
+      </div>
+
+      <div style="height: 10px"></div>
+
+      <div class="row">
+        <button class="btn" type="button" onclick="calc()">계산하기</button>
+      </div>
+
+      <div id="result" class="result" style="display:none">
+        <div class="inline">
+          <div class="grow">
+            <div class="muted">개당 원가</div>
+            <div class="kbd" id="unitCost">-</div>
+          </div>
+          <div class="grow" style="text-align:right">
+            <div class="muted">개당 판매가</div>
+            <div class="price" id="unitPrice">-</div>
+          </div>
+        </div>
+        <div style="height: 10px"></div>
+        <div class="grid-3">
+          <button class="btn small ghost" type="button" onclick="copyPrice()">가격 복사</button>
+          <button class="btn small ghost" type="button" onclick="sharePrice()">공유</button>
+          <button class="btn small ghost" type="button" onclick="resetAll()">리셋</button>
+        </div>
+        <div style="margin-top:10px" class="muted" id="detail"></div>
+      </div>
+    </div>
+
+    <!-- 물품 관리 섹션 -->
+    <div id="sectionInventory" class="card" style="display:none">
+      <h2 style="font-size: 1.1rem; margin: 0 0 14px;">새 물품 등록</h2>
+
+      <div class="row">
+        <div>
+          <label>바코드 번호</label>
+          <div class="field">
+            <input id="invBarcode" type="text" inputmode="numeric" placeholder="바코드 입력 또는 스캔" />
+          </div>
+        </div>
+      </div>
+
+      <div style="height: 10px"></div>
+
+      <div class="row">
+        <button class="btn ghost" type="button" id="scanBtn" onclick="toggleScanner()">
+          📷 카메라로 바코드 스캔
+        </button>
+      </div>
+
+      <!-- 바코드 스캐너 -->
+      <div id="scanner-container">
+        <div id="reader"></div>
+        <div class="scanner-status" id="scannerStatus">카메라를 바코드에 맞춰주세요</div>
+      </div>
+
+      <div style="height: 10px"></div>
+
+      <div class="row">
+        <div>
+          <label>물품명</label>
+          <div class="field">
+            <input id="invName" type="text" placeholder="예: 우유" />
+          </div>
+        </div>
+      </div>
+
+      <div style="height: 10px"></div>
+
+      <div class="row row-2">
+        <div>
+          <label>유통기한</label>
+          <div class="field">
+            <input id="invExpiry" type="date" />
+          </div>
+        </div>
+        <div>
+          <label>수량</label>
+          <div class="field">
+            <input id="invQuantity" type="number" inputmode="numeric" placeholder="1" value="1" />
+            <span class="addon">개</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="height: 10px"></div>
+
+      <div class="row row-2">
+        <div>
+          <label>카테고리</label>
+          <div class="field">
+            <select id="invCategory">
+              <option value="">선택 안함</option>
+              <option value="냉장">냉장</option>
+              <option value="냉동">냉동</option>
+              <option value="상온">상온</option>
+              <option value="음료">음료</option>
+              <option value="과자">과자</option>
+              <option value="신선식품">신선식품</option>
+              <option value="기타">기타</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label>가격 (선택)</label>
+          <div class="field">
+            <span class="addon">₩</span>
+            <input id="invPrice" type="number" inputmode="decimal" placeholder="예: 3000" />
+          </div>
+        </div>
+      </div>
+
+      <div style="height: 10px"></div>
+
+      <div class="row">
+        <div>
+          <label>메모 (선택)</label>
+          <div class="field">
+            <input id="invMemo" type="text" placeholder="간단 메모" />
+          </div>
+        </div>
+      </div>
+
+      <div style="height: 10px"></div>
+
+      <!-- 이미지 업로드 -->
+      <div class="row">
+        <div>
+          <label>상품 사진 (선택)</label>
+          <div class="image-upload-container">
+            <input type="file" id="invImageCamera" accept="image/*" capture="environment" style="display: none;" onchange="handleImageUpload(event)" />
+            <input type="file" id="invImageGallery" accept="image/*" style="display: none;" onchange="handleImageUpload(event)" />
+            <div class="image-preview" id="imagePreview">
+              <div class="image-preview-placeholder">
+                📷<br>사진 추가<br>
+                <span style="font-size: 0.75rem;">클릭하여 선택</span>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 8px;">
+            <button type="button" class="btn small ghost" onclick="openCamera()" style="flex: 1;">📷 카메라</button>
+            <button type="button" class="btn small ghost" onclick="openGallery()" style="flex: 1;">🖼️ 갤러리</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="height: 12px"></div>
+
+      <div class="row">
+        <button class="btn" type="button" onclick="addItem()">물품 등록</button>
+      </div>
+
+      <div style="height: 20px; border-top: 1px solid #e8e8ef; margin: 20px 0"></div>
+
+      <div class="inline" style="margin-bottom: 12px;">
+        <h2 style="font-size: 1.1rem; margin: 0; flex: 1;">물품 목록</h2>
+        <div class="muted" id="itemCount">0개</div>
+      </div>
+
+      <!-- 카테고리 필터 -->
+      <div class="category-filter" id="categoryFilter">
+        <div class="category-chip active" data-category="" onclick="filterByCategory('')">전체</div>
+      </div>
+
+      <!-- 검색 필터 -->
+      <div class="row" style="margin-bottom: 12px;">
+        <div class="field">
+          <span style="font-size: 1.1rem;">🔍</span>
+          <input id="searchInput" type="text" placeholder="물품명 또는 바코드로 검색..." oninput="searchItems()" />
+        </div>
+      </div>
+
+      <div id="itemList">
+        <div class="empty-state">
+          등록된 물품이 없습니다.<br>
+          <span class="muted" style="font-size: .85rem;">위에서 새 물품을 등록해보세요.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      팁: 홈 화면에 추가하면 앱처럼 빠르게 열 수 있습니다. (Safari/Chrome → "홈 화면에 추가")
+    </div>
+  </div>
+
+  <script>
+    const els = {
+      boxCost: document.getElementById('boxCost'),
+      qty: document.getElementById('qty'),
+      margin: document.getElementById('margin'),
+      rounding: document.getElementById('rounding'),
+      result: document.getElementById('result'),
+      unitCost: document.getElementById('unitCost'),
+      unitPrice: document.getElementById('unitPrice'),
+      detail: document.getElementById('detail'),
+    };
+
+    // 로컬 저장/복원
+    (function restore() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('marginCalcV2') || '{}');
+        ['boxCost','qty','margin','rounding'].forEach(k => {
+          if (saved[k] !== undefined && saved[k] !== null && saved[k] !== '') {
+            els[k].value = saved[k];
+          }
+        });
+        if (saved.boxCost || saved.qty || saved.margin) calc();
+      } catch(_) {}
+    })();
+
+    function persist() {
+      const data = {
+        boxCost: els.boxCost.value,
+        qty: els.qty.value,
+        margin: els.margin.value,
+        rounding: els.rounding.value
+      };
+      localStorage.setItem('marginCalcV2', JSON.stringify(data));
+    }
+
+    function roundBy(mode, value) {
+      if (mode === 'ceil10') return Math.ceil(value / 10) * 10;
+      if (mode === 'ceil100') return Math.ceil(value / 100) * 100;
+      const step = parseInt(mode, 10) || 1; // 1,10,50,100
+      return Math.round(value / step) * step;
+    }
+
+    function number(v) { return Number.isFinite(v) ? v : NaN; }
+
+    function formatKRW(x, digits=0) {
+      try { return Number(x).toLocaleString('ko-KR', { maximumFractionDigits: digits, minimumFractionDigits: digits }); }
+      catch { return String(x); }
+    }
+
+    function calc() {
+      const cost = number(parseFloat(els.boxCost.value));
+      const qty = number(parseInt(els.qty.value, 10));
+      const margin = number(parseFloat(els.margin.value));
+
+      if (!Number.isFinite(cost) || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(margin)) {
+        els.result.style.display = 'none';
+        persist();
+        return;
+      }
+
+      const unitCost = cost / qty;
+      const unitPriceRaw = unitCost * (1 + margin / 100);
+      const unitPriceRounded = roundBy(els.rounding.value, unitPriceRaw);
+
+      els.unitCost.textContent = `${formatKRW(unitCost, 2)} 원`;
+      els.unitPrice.textContent = `₩ ${formatKRW(unitPriceRounded)}`;
+
+      els.detail.innerHTML =
+        `원가(개당) ${formatKRW(unitCost,2)} × (1 + ${margin.toFixed(2)}%) = `
+        + `<span class="kbd">${formatKRW(unitPriceRaw,2)} 원</span> → `
+        + `<span class="kbd">${els.rounding.options[els.rounding.selectedIndex].text}</span> 적용`;
+
+      els.result.style.display = 'block';
+      persist();
+    }
+
+    function copyPrice() {
+      const text = els.unitPrice.textContent.replace(/^₩\s*/, '');
+      navigator.clipboard?.writeText(text).then(() => {
+        toast('복사 완료: ' + text + '원');
+      }).catch(() => alert('복사를 지원하지 않는 브라우저입니다.'));
+    }
+
+    function sharePrice() {
+      const cost = els.boxCost.value, qty = els.qty.value, mg = els.margin.value;
+      const price = els.unitPrice.textContent;
+      const msg = `마진 계산 결과\n- 박스: ₩${cost} / ${qty}개\n- 마진: ${mg}%\n- 개당 판매가: ${price}`;
+      if (navigator.share) {
+        navigator.share({ title: '마진 계산 결과', text: msg }).catch(()=>{});
+      } else {
+        alert(msg);
+      }
+    }
+
+    function resetAll() {
+      els.boxCost.value = '';
+      els.qty.value = '';
+      els.margin.value = '30';
+      els.rounding.value = '10';
+      els.result.style.display = 'none';
+      persist();
+    }
+
+    // 간단 토스트
+    function toast(msg) {
+      const t = document.createElement('div');
+      t.textContent = msg;
+      Object.assign(t.style, {
+        position:'fixed', left:'50%', bottom:'24px', transform:'translateX(-50%)',
+        background:'#111', color:'#fff', padding:'10px 14px', borderRadius:'10px',
+        fontSize:'14px', opacity:'0', transition:'opacity .2s ease', zIndex:9999
+      });
+      document.body.appendChild(t);
+      requestAnimationFrame(()=> t.style.opacity = '0.92');
+      setTimeout(()=> {
+        t.style.opacity='0';
+        setTimeout(()=> t.remove(), 250);
+      }, 1300);
+    }
+
+    // 즉시 반응형 계산
+    ['input','change'].forEach(ev=>{
+      ['boxCost','qty','margin','rounding'].forEach(id=>{
+        document.getElementById(id).addEventListener(ev, calc);
+      });
+    });
+
+    // 기본값
+    if (!els.margin.value) els.margin.value = 30;
+    if (!els.rounding.value) els.rounding.value = '10';
+
+    // ==================== 물품 관리 기능 ====================
+
+    let inventory = [];
+    let html5QrCode = null;
+    let isScanning = false;
+    let currentSearchTerm = '';
+    let currentImageData = null;
+    let currentCategoryFilter = '';
+
+    // 탭 전환
+    function switchTab(tab) {
+      const marginBtn = document.getElementById('tabMargin');
+      const inventoryBtn = document.getElementById('tabInventory');
+      const marginSection = document.getElementById('sectionMargin');
+      const inventorySection = document.getElementById('sectionInventory');
+
+      if (tab === 'margin') {
+        marginBtn.classList.add('active');
+        inventoryBtn.classList.remove('active');
+        marginSection.style.display = 'block';
+        inventorySection.style.display = 'none';
+      } else {
+        marginBtn.classList.remove('active');
+        inventoryBtn.classList.add('active');
+        marginSection.style.display = 'none';
+        inventorySection.style.display = 'block';
+      }
+
+      localStorage.setItem('activeTab', tab);
+    }
+
+    // 물품 데이터 불러오기
+    function loadInventory() {
+      try {
+        const saved = localStorage.getItem('inventory');
+        if (saved) {
+          inventory = JSON.parse(saved);
+          renderItemList();
+        }
+      } catch (e) {
+        console.error('Failed to load inventory:', e);
+      }
+    }
+
+    // 물품 데이터 저장
+    function saveInventory() {
+      try {
+        localStorage.setItem('inventory', JSON.stringify(inventory));
+      } catch (e) {
+        console.error('Failed to save inventory:', e);
+        toast('저장 실패: 용량 초과');
+      }
+    }
+
+    // 유통기한 상태 계산
+    function getExpiryStatus(expiryDate) {
+      if (!expiryDate) return { class: 'expiry-ok', text: '미설정', dday: null };
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const expiry = new Date(expiryDate);
+      expiry.setHours(0, 0, 0, 0);
+
+      const diffTime = expiry - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays < 0) {
+        return { class: 'expiry-expired', text: `만료됨 (${Math.abs(diffDays)}일 전)`, dday: diffDays };
+      } else if (diffDays === 0) {
+        return { class: 'expiry-expired', text: '오늘 만료', dday: 0 };
+      } else if (diffDays <= 7) {
+        return { class: 'expiry-warning', text: `D-${diffDays}`, dday: diffDays };
+      } else if (diffDays <= 30) {
+        return { class: 'expiry-caution', text: `D-${diffDays}`, dday: diffDays };
+      } else {
+        return { class: 'expiry-ok', text: `D-${diffDays}`, dday: diffDays };
+      }
+    }
+
+    // 검색어 하이라이트
+    function highlightText(text, searchTerm) {
+      if (!searchTerm) return escapeHtml(text);
+      const escaped = escapeHtml(text);
+      const searchEscaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(${searchEscaped})`, 'gi');
+      return escaped.replace(regex, '<span class="highlight">$1</span>');
+    }
+
+    // 이미지 업로드 핸들러
+    function handleImageUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      // 파일 크기 체크 (2MB 제한)
+      if (file.size > 2 * 1024 * 1024) {
+        toast('이미지 크기는 2MB 이하로 제한됩니다');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        currentImageData = e.target.result;
+        updateImagePreview(currentImageData);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // 이미지 미리보기 업데이트
+    function updateImagePreview(imageData) {
+      const preview = document.getElementById('imagePreview');
+      if (imageData) {
+        preview.innerHTML = `
+          <img src="${imageData}" alt="상품 사진" />
+          <button class="image-remove" onclick="removeImage(event)">×</button>
+        `;
+      } else {
+        preview.innerHTML = `
+          <div class="image-preview-placeholder">
+            📷<br>사진 추가<br>
+            <span style="font-size: 0.75rem;">클릭하여 촬영 또는 선택</span>
+          </div>
+        `;
+      }
+    }
+
+    // 이미지 제거
+    function removeImage(event) {
+      event.stopPropagation();
+      currentImageData = null;
+      document.getElementById('invImageCamera').value = '';
+      document.getElementById('invImageGallery').value = '';
+      updateImagePreview(null);
+      toast('사진이 제거되었습니다');
+    }
+
+    // 카메라 열기
+    function openCamera() {
+      document.getElementById('invImageCamera').click();
+    }
+
+    // 갤러리 열기
+    function openGallery() {
+      document.getElementById('invImageGallery').click();
+    }
+
+    // 카테고리 필터 렌더링
+    function renderCategoryFilter() {
+      const categories = [...new Set(inventory.map(item => item.category).filter(Boolean))];
+      const filterEl = document.getElementById('categoryFilter');
+
+      let html = '<div class="category-chip active" data-category="" onclick="filterByCategory(\'\')">전체</div>';
+      categories.forEach(cat => {
+        html += `<div class="category-chip" data-category="${cat}" onclick="filterByCategory('${cat}')">${cat}</div>`;
+      });
+
+      filterEl.innerHTML = html;
+    }
+
+    // 카테고리로 필터링
+    function filterByCategory(category) {
+      currentCategoryFilter = category;
+
+      // 칩 활성화 상태 업데이트
+      document.querySelectorAll('.category-chip').forEach(chip => {
+        if (chip.dataset.category === category) {
+          chip.classList.add('active');
+        } else {
+          chip.classList.remove('active');
+        }
+      });
+
+      // 검색어도 함께 적용
+      searchItems();
+    }
+
+    // 물품 목록 렌더링
+    function renderItemList(filteredItems = null) {
+      const listEl = document.getElementById('itemList');
+      const countEl = document.getElementById('itemCount');
+
+      const items = filteredItems !== null ? filteredItems : inventory;
+
+      if (inventory.length === 0) {
+        listEl.innerHTML = `
+          <div class="empty-state">
+            등록된 물품이 없습니다.<br>
+            <span class="muted" style="font-size: .85rem;">위에서 새 물품을 등록해보세요.</span>
+          </div>
+        `;
+        countEl.textContent = '0개';
+        return;
+      }
+
+      if (items.length === 0) {
+        listEl.innerHTML = `
+          <div class="empty-state">
+            검색 결과가 없습니다.<br>
+            <span class="muted" style="font-size: .85rem;">다른 검색어를 입력해보세요.</span>
+          </div>
+        `;
+        countEl.textContent = `0개 / 전체 ${inventory.length}개`;
+        return;
+      }
+
+      // 유통기한 임박순으로 정렬
+      const sorted = [...items].sort((a, b) => {
+        const statusA = getExpiryStatus(a.expiryDate);
+        const statusB = getExpiryStatus(b.expiryDate);
+        if (statusA.dday === null) return 1;
+        if (statusB.dday === null) return -1;
+        return statusA.dday - statusB.dday;
+      });
+
+      listEl.innerHTML = sorted.map(item => {
+        const status = getExpiryStatus(item.expiryDate);
+        return `
+          <div class="item-card">
+            <div style="display: flex; gap: 12px;">
+              ${item.image ? `<img src="${item.image}" class="item-image" alt="${escapeHtml(item.name)}" />` : ''}
+              <div style="flex: 1;">
+                <div class="item-header">
+                  <div>
+                    <div class="item-name">${highlightText(item.name, currentSearchTerm)}</div>
+                    <div class="item-barcode">${highlightText(item.barcode, currentSearchTerm)}</div>
+                    ${item.category ? `<span class="category-badge">${item.category}</span>` : ''}
+                  </div>
+                  <div class="expiry-badge ${status.class}">${status.text}</div>
+                </div>
+                <div class="item-detail">
+              <div>
+                <div class="muted">수량</div>
+                <div style="font-weight: 600;">${item.quantity}개</div>
+              </div>
+              ${item.price ? `
+                <div>
+                  <div class="muted">가격</div>
+                  <div style="font-weight: 600;">₩${formatKRW(item.price)}</div>
+                </div>
+              ` : ''}
+              ${item.memo ? `
+                <div style="flex: 2;">
+                  <div class="muted">메모</div>
+                  <div style="font-size: .9rem;">${escapeHtml(item.memo)}</div>
+                </div>
+              ` : ''}
+                </div>
+                <div class="item-actions">
+                  <button class="btn small ghost" onclick="updateQuantity('${item.id}', -1)">-1</button>
+                  <button class="btn small ghost" onclick="updateQuantity('${item.id}', 1)">+1</button>
+                  <button class="btn small ghost" style="flex: 1;" onclick="deleteItem('${item.id}')">삭제</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      if (filteredItems !== null && filteredItems.length < inventory.length) {
+        countEl.textContent = `${items.length}개 / 전체 ${inventory.length}개`;
+      } else {
+        countEl.textContent = `${inventory.length}개`;
+      }
+    }
+
+    // HTML 이스케이프
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text || '';
+      return div.innerHTML;
+    }
+
+    // 물품 추가
+    function addItem() {
+      const barcode = document.getElementById('invBarcode').value.trim();
+      const name = document.getElementById('invName').value.trim();
+      const expiryDate = document.getElementById('invExpiry').value;
+      const quantity = parseInt(document.getElementById('invQuantity').value, 10);
+      const category = document.getElementById('invCategory').value;
+      const price = parseFloat(document.getElementById('invPrice').value) || null;
+      const memo = document.getElementById('invMemo').value.trim();
+
+      // 유효성 검사
+      if (!barcode) {
+        toast('바코드를 입력해주세요');
+        return;
+      }
+      if (!name) {
+        toast('물품명을 입력해주세요');
+        return;
+      }
+      if (!quantity || quantity < 1) {
+        toast('수량을 입력해주세요');
+        return;
+      }
+
+      // 기존 물품 확인
+      const existing = inventory.find(item => item.barcode === barcode);
+      if (existing) {
+        if (confirm(`이미 등록된 바코드입니다.\n"${existing.name}" 수량을 ${quantity}개 추가하시겠습니까?`)) {
+          existing.quantity += quantity;
+          saveInventory();
+          renderItemList();
+          toast(`수량 추가됨: ${existing.name} (${existing.quantity}개)`);
+          clearForm();
+        }
+        return;
+      }
+
+      // 새 물품 추가
+      const newItem = {
+        id: Date.now().toString(),
+        barcode,
+        name,
+        category: category || null,
+        expiryDate: expiryDate || null,
+        quantity,
+        price,
+        memo,
+        image: currentImageData || null,
+        registeredAt: new Date().toISOString()
+      };
+
+      inventory.push(newItem);
+      saveInventory();
+      renderItemList();
+      renderCategoryFilter();
+      toast(`물품 등록 완료: ${name}`);
+      clearForm();
+    }
+
+    // 폼 초기화
+    function clearForm() {
+      document.getElementById('invBarcode').value = '';
+      document.getElementById('invName').value = '';
+      document.getElementById('invExpiry').value = '';
+      document.getElementById('invQuantity').value = '1';
+      document.getElementById('invCategory').value = '';
+      document.getElementById('invPrice').value = '';
+      document.getElementById('invMemo').value = '';
+      document.getElementById('invImageCamera').value = '';
+      document.getElementById('invImageGallery').value = '';
+      currentImageData = null;
+      updateImagePreview(null);
+      document.getElementById('invBarcode').focus();
+    }
+
+    // 수량 업데이트
+    function updateQuantity(id, delta) {
+      const item = inventory.find(i => i.id === id);
+      if (!item) return;
+
+      item.quantity += delta;
+      if (item.quantity < 0) item.quantity = 0;
+
+      if (item.quantity === 0) {
+        if (confirm(`${item.name}의 수량이 0개가 되었습니다.\n물품을 삭제하시겠습니까?`)) {
+          deleteItem(id);
+          return;
+        } else {
+          item.quantity = 1;
+        }
+      }
+
+      saveInventory();
+      renderItemList();
+      toast(`수량 변경: ${item.name} (${item.quantity}개)`);
+    }
+
+    // 물품 삭제
+    function deleteItem(id) {
+      const item = inventory.find(i => i.id === id);
+      if (!item) return;
+
+      if (confirm(`"${item.name}"을(를) 삭제하시겠습니까?`)) {
+        inventory = inventory.filter(i => i.id !== id);
+        saveInventory();
+        renderItemList();
+        toast('물품이 삭제되었습니다');
+      }
+    }
+
+    // 바코드 스캐너 토글
+    function toggleScanner() {
+      const container = document.getElementById('scanner-container');
+      const btn = document.getElementById('scanBtn');
+      const statusEl = document.getElementById('scannerStatus');
+
+      if (isScanning) {
+        // 스캐너 중지
+        stopScanner();
+      } else {
+        // 스캐너 시작
+        container.classList.add('active');
+        btn.textContent = '⏹️ 스캔 중지';
+        statusEl.textContent = '카메라를 바코드에 맞춰주세요';
+        startScanner();
+      }
+    }
+
+    // 스캐너 시작
+    function startScanner() {
+      if (isScanning) return;
+
+      const statusEl = document.getElementById('scannerStatus');
+
+      try {
+        if (!html5QrCode) {
+          html5QrCode = new Html5Qrcode("reader");
+        }
+
+        const config = {
+          fps: 10,
+          qrbox: { width: 250, height: 150 },
+          aspectRatio: 1.0,
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.QR_CODE
+          ]
+        };
+
+        html5QrCode.start(
+          { facingMode: "environment" },
+          config,
+          onScanSuccess,
+          onScanError
+        ).then(() => {
+          isScanning = true;
+          statusEl.textContent = '스캔 중... 바코드를 비춰주세요';
+        }).catch(err => {
+          console.error('Failed to start scanner:', err);
+          statusEl.textContent = '카메라 시작 실패. 권한을 확인해주세요.';
+          toast('카메라 접근 권한이 필요합니다');
+          stopScanner();
+        });
+      } catch (err) {
+        console.error('Scanner error:', err);
+        toast('스캐너 초기화 실패');
+        stopScanner();
+      }
+    }
+
+    // 스캐너 중지
+    function stopScanner() {
+      const container = document.getElementById('scanner-container');
+      const btn = document.getElementById('scanBtn');
+
+      if (html5QrCode && isScanning) {
+        html5QrCode.stop().then(() => {
+          isScanning = false;
+          container.classList.remove('active');
+          btn.textContent = '📷 카메라로 바코드 스캔';
+        }).catch(err => {
+          console.error('Failed to stop scanner:', err);
+          isScanning = false;
+          container.classList.remove('active');
+          btn.textContent = '📷 카메라로 바코드 스캔';
+        });
+      } else {
+        isScanning = false;
+        container.classList.remove('active');
+        btn.textContent = '📷 카메라로 바코드 스캔';
+      }
+    }
+
+    // 스캔 성공 콜백
+    function onScanSuccess(decodedText, decodedResult) {
+      const statusEl = document.getElementById('scannerStatus');
+      const barcodeInput = document.getElementById('invBarcode');
+
+      // 바코드 입력 필드에 값 설정
+      barcodeInput.value = decodedText;
+
+      // 성공 메시지
+      statusEl.textContent = `✅ 스캔 완료: ${decodedText}`;
+      toast(`바코드 스캔 완료: ${decodedText}`);
+
+      // 물품명 필드로 포커스 이동
+      document.getElementById('invName').focus();
+
+      // 2초 후 스캐너 자동 중지
+      setTimeout(() => {
+        stopScanner();
+      }, 2000);
+    }
+
+    // 스캔 에러 콜백 (에러가 아닌 스캔 진행 중 상태)
+    function onScanError(errorMessage) {
+      // 스캔 중에는 계속 에러가 발생하므로 무시
+      // console.log('Scanning...', errorMessage);
+    }
+
+    // 물품 검색 기능
+    function searchItems() {
+      const searchInput = document.getElementById('searchInput');
+      const searchTerm = searchInput.value.trim().toLowerCase();
+      currentSearchTerm = searchInput.value.trim();
+
+      let filtered = inventory;
+
+      // 카테고리 필터 적용
+      if (currentCategoryFilter) {
+        filtered = filtered.filter(item => item.category === currentCategoryFilter);
+      }
+
+      // 검색어 필터 적용
+      if (searchTerm) {
+        filtered = filtered.filter(item => {
+          const nameMatch = item.name.toLowerCase().includes(searchTerm);
+          const barcodeMatch = item.barcode.toLowerCase().includes(searchTerm);
+          return nameMatch || barcodeMatch;
+        });
+      }
+
+      renderItemList(filtered);
+
+      // 검색 결과 피드백
+      if (searchTerm || currentCategoryFilter) {
+        if (filtered.length === 0) {
+          // 결과 없음은 renderItemList에서 처리
+        } else if (filtered.length === 1) {
+          toast(`1개 물품 발견`);
+        } else {
+          toast(`${filtered.length}개 물품 발견`);
+        }
+      }
+    }
+
+    // 바코드로 물품 찾기 (단일 결과)
+    function findItemByBarcode(barcode) {
+      return inventory.find(item => item.barcode === barcode);
+    }
+
+    // 초기화
+    (function initInventory() {
+      loadInventory();
+      renderCategoryFilter();
+
+      // 저장된 탭 복원
+      const savedTab = localStorage.getItem('activeTab');
+      if (savedTab === 'inventory') {
+        switchTab('inventory');
+      }
+
+      // 탭 전환 시 스캐너 중지
+      const originalSwitchTab = switchTab;
+      switchTab = function(tab) {
+        if (isScanning && tab !== 'inventory') {
+          stopScanner();
+        }
+        originalSwitchTab(tab);
+      };
+    })();
+  </script>
+</body>
+</html>
